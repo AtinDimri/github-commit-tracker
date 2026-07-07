@@ -1,18 +1,10 @@
-from pathlib import Path
-from typing import Iterable, List
+from __future__ import annotations
 
-import gspread
-from google.auth.transport.requests import Request
-from google.oauth2.credentials import Credentials
-from google_auth_oauthlib.flow import InstalledAppFlow
-from gspread.exceptions import WorksheetNotFound
+from typing import Any, Dict, Iterable, List, Sequence
 
-from datetime import datetime
+import requests
 
-from config import CLIENT_SECRET_FILE, SPREADSHEET_ID, WORKSHEET_NAME
-
-SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
-TOKEN_FILE = "token.json"
+from config import APPS_SCRIPT_WEBAPP_URL
 
 HEADERS = [
     "Repository",
@@ -27,91 +19,92 @@ HEADERS = [
 ]
 
 
-def _load_credentials() -> Credentials:
-    creds = None
-    token_path = Path(TOKEN_FILE)
-    client_secret_path = Path(CLIENT_SECRET_FILE)
-
-    if token_path.exists():
-        try:
-            creds = Credentials.from_authorized_user_file(
-                token_path.as_posix(),
-                SCOPES,
-            )
-        except Exception:
-            creds = None
-
-    if creds and creds.expired and creds.refresh_token:
-        creds.refresh(Request())
-    elif not creds or not creds.valid:
-        if not client_secret_path.exists():
-            raise FileNotFoundError(
-                f"{CLIENT_SECRET_FILE} not found in project root."
-            )
-
-        flow = InstalledAppFlow.from_client_secrets_file(
-            client_secret_path.as_posix(),
-            SCOPES,
+def _row_list_to_dict(row: Sequence[Any]) -> Dict[str, str]:
+    if len(row) != 9:
+        raise ValueError(
+            f"Expected 9 values per row, got {len(row)}. "
+            f"Expected order: {HEADERS}"
         )
-        creds = flow.run_local_server(port=0)
 
-    token_path.write_text(creds.to_json(), encoding="utf-8")
-    return creds
-
-
-def get_client() -> gspread.Client:
-    creds = _load_credentials()
-    return gspread.authorize(creds)
-
-
-def get_spreadsheet():
-    if not SPREADSHEET_ID:
-        raise ValueError("SPREADSHEET_ID is missing in config.py")
-
-    client = get_client()
-    return client.open_by_key(SPREADSHEET_ID)
+    return {
+        "repository": str(row[0]),
+        "commit_sha": str(row[1]),
+        "committer": str(row[2]),
+        "file_name": str(row[3]),
+        "changes": str(row[4]),
+        "commit_message": str(row[5]),
+        "date": str(row[6]),
+        "time": str(row[7]),
+        "ai_summary": str(row[8]),
+    }
 
 
-def ensure_headers(ws) -> None:
-    current = ws.row_values(1)
+def _normalize_rows(rows: Iterable[Any]) -> List[Dict[str, str]]:
+    normalized: List[Dict[str, str]] = []
 
-    if not current:
-        ws.append_row(HEADERS, value_input_option="RAW")
-    else:
-        normalized = [str(cell).strip() for cell in current[: len(HEADERS)]]
-        if normalized != HEADERS:
-            raise ValueError(
-                "Worksheet header mismatch.\n"
-                f"Expected: {HEADERS}\n"
-                f"Found:    {current}"
+    for row in rows:
+        if isinstance(row, dict):
+            required = [
+                "repository",
+                "commit_sha",
+                "committer",
+                "file_name",
+                "changes",
+                "commit_message",
+                "date",
+                "time",
+                "ai_summary",
+            ]
+
+            missing = [key for key in required if key not in row]
+            if missing:
+                raise ValueError(f"Missing row keys: {missing}")
+
+            normalized.append({key: str(row[key]) for key in required})
+
+        elif isinstance(row, (list, tuple)):
+            normalized.append(_row_list_to_dict(row))
+
+        else:
+            raise TypeError(
+                "Each row must be either a dict or a list/tuple of 9 values."
             )
+
+    return normalized
+
+
+def append_commit_file_rows(rows: Iterable[Any]) -> Dict[str, Any]:
+    if not APPS_SCRIPT_WEBAPP_URL:
+        raise ValueError("APPS_SCRIPT_WEBAPP_URL is missing in config.py")
+
+    payload = {"rows": _normalize_rows(rows)}
+
+    response = requests.post(
+        APPS_SCRIPT_WEBAPP_URL,
+        json=payload,
+        timeout=30,
+    )
 
     try:
-        ws.format(
-            f"A:I",
-            {
-                "wrapStrategy": "WRAP",
-                "verticalAlignment": "TOP",
-            },
-        )
+        data = response.json()
     except Exception:
-        pass
-
-
-def get_worksheet():
-    spreadsheet = get_spreadsheet()
-
-    try:
-        ws = spreadsheet.worksheet(WORKSHEET_NAME)
-    except WorksheetNotFound:
-        ws = spreadsheet.add_worksheet(
-            title=WORKSHEET_NAME,
-            rows=1000,
-            cols=len(HEADERS),
+        raise RuntimeError(
+            f"Apps Script returned non-JSON response.\n"
+            f"Status: {response.status_code}\n"
+            f"Body: {response.text}"
         )
 
-    ensure_headers(ws)
-    return ws
+    if response.status_code != 200:
+        raise RuntimeError(
+            f"Apps Script request failed.\n"
+            f"Status: {response.status_code}\n"
+            f"Response: {data}"
+        )
+
+    if not data.get("success"):
+        raise RuntimeError(f"Apps Script reported failure: {data}")
+
+    return data
 
 
 def append_commit_file_row(
@@ -124,42 +117,33 @@ def append_commit_file_row(
     date_str: str,
     time_str: str,
     ai_summary: str,
-) -> None:
-    ws = get_worksheet()
-
-    row = [
-        repository,
-        commit_sha,
-        committer,
-        file_name,
-        changes,
-        commit_message,
-        date_str,
-        time_str,
-        ai_summary,
-    ]
-
-    ws.append_row(row, value_input_option="RAW")
-
-
-def append_commit_file_rows(rows: Iterable[List[str]]) -> None:
-    ws = get_worksheet()
-    ws.append_rows(list(rows), value_input_option="RAW")
+) -> Dict[str, Any]:
+    return append_commit_file_rows(
+        [[
+            repository,
+            commit_sha,
+            committer,
+            file_name,
+            changes,
+            commit_message,
+            date_str,
+            time_str,
+            ai_summary,
+        ]]
+    )
 
 
 if __name__ == "__main__":
-    # Temporary test row. Run once to authorize and verify writing works.
-    now = datetime.now()
-
-    append_commit_file_row(
+    # Temporary smoke test: this should append one row to your "Logs of commits" tab.
+    result = append_commit_file_row(
         repository="Test_repo",
         commit_sha="TEST_SHA",
         committer="Atin",
         file_name="PUSHING.py",
         changes='Line 1\n\nRemoved:\nprint("Hello")\n\nAdded:\nprint("Hello World")',
         commit_message="Test write from google_sheets.py",
-        date_str=now.strftime("%Y-%m-%d"),
-        time_str=now.strftime("%H:%M:%S"),
+        date_str="2026-07-07",
+        time_str="12:00:00",
         ai_summary="Test row written successfully.",
-)
-    print("Test row appended successfully.")
+    )
+    print(result)

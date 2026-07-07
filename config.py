@@ -25,3 +25,6 @@ SPREADSHEET_ID = "1gbUM2cETYIYyzrgSV2pZzdOZE__gBtC5E85XmV9Q2EM"
 WORKSHEET_NAME = "Logs of commits"
 
 WEBHOOK_TOKEN = os.getenv("WEBHOOK_TOKEN")
+
+
+APPS_SCRIPT_WEBAPP_URL = "https://script.google.com/macros/s/AKfycbzzKts-vjXsCWumdeWv7B9xra-nSuQQcetK36PN9LWMoPUKGwyPWCAcVK-0S-ED_FKCdw/exec"

@@ -1,18 +1,29 @@
-name: Commit Tracker Smoke Test
+name: GitHub Commit Tracker
 
 on:
   push:
-    branches: [ main ]
-  workflow_dispatch:
+    branches:
+      - main
 
 jobs:
-  test-trigger:
+  commit-tracker:
+
     runs-on: ubuntu-latest
 
     steps:
-      - name: Show trigger details
+
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Dependencies
         run: |
-          echo "Workflow triggered successfully"
-          echo "Repository: ${{ github.repository }}"
-          echo "Ref: ${{ github.ref }}"
-          echo "SHA: ${{ github.sha }}"
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run Commit Tracker
+        run: python runner.py

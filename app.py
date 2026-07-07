@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from ai_summary import generate_ai_summary
+
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Tuple
 
@@ -178,8 +180,8 @@ async def github_webhook(request: Request):
 
     committer = _extract_committer(payload, commit_obj)
     commit_message = _extract_commit_message(payload, commit_obj)
-    commit_dt = _extract_commit_datetime(payload, commit_obj)
-    date_str, time_str = _format_date_time(commit_dt)
+    processed_dt = datetime.now(timezone.utc)
+    date_str, time_str = _format_date_time(processed_dt)
 
     rows: List[List[str]] = []
 
