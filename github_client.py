@@ -1,22 +1,25 @@
 from github import Github, Auth
 from config import GITHUB_TOKEN
 
-if not GITHUB_TOKEN:
-    raise ValueError("GITHUB_TOKEN not found. Check your .env file.")
 
-# ------------------------------------
+# -------------------------------------------------
 # GitHub Authentication
-# ------------------------------------
+# -------------------------------------------------
+
+if not GITHUB_TOKEN:
+    raise RuntimeError(
+        "GITHUB_TOKEN environment variable is not set."
+    )
 
 auth = Auth.Token(GITHUB_TOKEN)
 github = Github(auth=auth)
 
 
-# ------------------------------------
+# -------------------------------------------------
 # Repository Functions
-# ------------------------------------
+# -------------------------------------------------
 
-def get_repo(repo_name):
+def get_repo(repo_name: str):
     """
     Example:
         repo_name = "AtinDimri/Test_repo"
@@ -24,7 +27,7 @@ def get_repo(repo_name):
     return github.get_repo(repo_name)
 
 
-def get_commit(repo_name, commit_sha):
+def get_commit(repo_name: str, commit_sha: str):
     repo = get_repo(repo_name)
     return repo.get_commit(commit_sha)
 
@@ -39,23 +42,13 @@ def get_files(commit):
     return list(commit.files)
 
 
-# ------------------------------------
+# -------------------------------------------------
 # File Content Functions
-# ------------------------------------
+# -------------------------------------------------
 
-def get_file_content(repo_name, file_path, ref):
+def get_file_content(repo_name: str, file_path: str, ref: str) -> str:
     """
-    Downloads the content of a file at a specific commit.
-
-    Parameters
-    ----------
-    repo_name : str
-    file_path : str
-    ref : branch / tag / commit SHA
-
-    Returns
-    -------
-    str
+    Download a file's contents at a specific commit/branch/tag.
     """
 
     repo = get_repo(repo_name)
@@ -74,10 +67,14 @@ def get_file_content(repo_name, file_path, ref):
         )
 
 
-def get_old_and_new_file(repo_name, parent_sha, commit_sha, file_path):
+def get_old_and_new_file(
+    repo_name: str,
+    parent_sha: str,
+    commit_sha: str,
+    file_path: str,
+):
     """
     Returns:
-
         old_content,
         new_content
     """
@@ -85,30 +82,28 @@ def get_old_and_new_file(repo_name, parent_sha, commit_sha, file_path):
     old_content = get_file_content(
         repo_name,
         file_path,
-        parent_sha
+        parent_sha,
     )
 
     new_content = get_file_content(
         repo_name,
         file_path,
-        commit_sha
+        commit_sha,
     )
 
     return old_content, new_content
 
 
-# ------------------------------------
-# Temporary Testing
-# ------------------------------------
+# -------------------------------------------------
+# Local Testing
+# -------------------------------------------------
 
 if __name__ == "__main__":
 
     REPO_NAME = "AtinDimri/Test_repo"
-
     COMMIT_SHA = "23acb5ef9ce53219af0beeb79fbd31c76235d0f4"
 
     commit = get_commit(REPO_NAME, COMMIT_SHA)
-
     parent_sha = get_parent_sha(commit)
 
     print("=" * 70)
@@ -127,7 +122,7 @@ if __name__ == "__main__":
             REPO_NAME,
             parent_sha,
             COMMIT_SHA,
-            file.filename
+            file.filename,
         )
 
         print("\nOLD FILE")
@@ -139,37 +134,3 @@ if __name__ == "__main__":
         print(new_text)
 
         print("\n" + "=" * 70)
-
-# --------------------------
-# Temporary Testing Section
-# --------------------------
-
-# if __name__ == "__main__":
-
-#     REPO_NAME = "AtinDimri/Test_repo"
-
-#     COMMIT_SHA = "23acb5ef9ce53219af0beeb79fbd31c76235d0f4"
-
-#     commit = get_commit(REPO_NAME, COMMIT_SHA)
-
-#     print("=" * 60)
-#     print("Repository      :", REPO_NAME)
-#     print("Commit SHA      :", commit.sha)
-#     print("Parent SHA      :", get_parent_sha(commit))
-#     print("Author          :", commit.commit.author.name)
-#     print("Commit Message  :", commit.commit.message)
-#     print("Commit Date     :", commit.commit.author.date)
-
-#     print("\nChanged Files")
-#     print("-" * 60)
-
-#     files = get_files(commit)
-
-#     for file in files:
-#         print("=" * 70)
-#         print("File:", file.filename)
-#         print("=" * 70)
-
-#         print(file.patch)
-
-#         print("=" * 70)
