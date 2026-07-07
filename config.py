@@ -23,3 +23,5 @@ SPREADSHEET_ID = "1gbUM2cETYIYyzrgSV2pZzdOZE__gBtC5E85XmV9Q2EM"
 
 # Name of the worksheet (tab)
 WORKSHEET_NAME = "Logs of commits"
+
+WEBHOOK_TOKEN = os.getenv("WEBHOOK_TOKEN")
