@@ -18,13 +18,14 @@ on:
       APPS_SCRIPT_WEBAPP_URL:
         required: true
 
+permissions:
+  contents: read
+
 jobs:
   commit-tracker:
-
     runs-on: ubuntu-latest
 
     steps:
-
       - name: Checkout Repository
         uses: actions/checkout@v4
 
@@ -42,8 +43,6 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GH_PAT }}
           APPS_SCRIPT_WEBAPP_URL: ${{ secrets.APPS_SCRIPT_WEBAPP_URL }}
-
           REPO_FULL_NAME: ${{ inputs.repo_full_name }}
           COMMIT_SHA: ${{ inputs.commit_sha }}
-
         run: python runner.py
