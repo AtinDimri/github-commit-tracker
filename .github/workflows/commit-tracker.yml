@@ -1,15 +1,30 @@
-name: GitHub Commit Tracker
+name: Commit Tracker Core
 
 on:
-  push:
-    branches:
-      - main
+  workflow_call:
+    inputs:
+      repo_full_name:
+        required: true
+        type: string
+
+      commit_sha:
+        required: true
+        type: string
+
+    secrets:
+      GH_PAT:
+        required: true
+
+      APPS_SCRIPT_WEBAPP_URL:
+        required: true
 
 jobs:
   commit-tracker:
+
     runs-on: ubuntu-latest
 
     steps:
+
       - name: Checkout Repository
         uses: actions/checkout@v4
 
@@ -23,25 +38,12 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Debug Secrets
-        env:
-          GITHUB_TOKEN: ${{ secrets.GH_PAT }}
-          APPS_SCRIPT_WEBAPP_URL: ${{ secrets.APPS_SCRIPT_WEBAPP_URL }}
-        run: |
-          if [ -z "$GITHUB_TOKEN" ]; then
-            echo "❌ GITHUB_TOKEN is NOT set"
-          else
-            echo "✅ GITHUB_TOKEN is set"
-          fi
-
-          if [ -z "$APPS_SCRIPT_WEBAPP_URL" ]; then
-            echo "❌ APPS_SCRIPT_WEBAPP_URL is NOT set"
-          else
-            echo "✅ APPS_SCRIPT_WEBAPP_URL is set"
-          fi
-
       - name: Run Commit Tracker
         env:
           GITHUB_TOKEN: ${{ secrets.GH_PAT }}
           APPS_SCRIPT_WEBAPP_URL: ${{ secrets.APPS_SCRIPT_WEBAPP_URL }}
+
+          REPO_FULL_NAME: ${{ inputs.repo_full_name }}
+          COMMIT_SHA: ${{ inputs.commit_sha }}
+
         run: python runner.py
