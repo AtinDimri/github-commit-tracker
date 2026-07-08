@@ -25,6 +25,23 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+      - name: Debug Secrets
+        env:
+          GITHUB_TOKEN: ${{ secrets.GGITHUB_TOKEN }}
+          APPS_SCRIPT_WEBAPP_URL: ${{ secrets.APPS_SCRIPT_WEBAPP_URL }}
+        run: |
+          if [ -z "$GITHUB_TOKEN" ]; then
+            echo "❌ GITHUB_TOKEN is NOT set"
+          else
+            echo "✅ GITHUB_TOKEN is set"
+          fi
+
+          if [ -z "$APPS_SCRIPT_WEBAPP_URL" ]; then
+            echo "❌ APPS_SCRIPT_WEBAPP_URL is NOT set"
+          else
+            echo "✅ APPS_SCRIPT_WEBAPP_URL is set"
+          fi
+
       - name: Run Commit Tracker
         env:
           GITHUB_TOKEN: ${{ secrets.GGITHUB_TOKEN }}
