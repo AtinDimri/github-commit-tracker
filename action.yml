@@ -1,0 +1,45 @@
+name: GitHub Commit Tracker
+description: Process a commit and write changed-file rows to Google Sheets
+
+inputs:
+  repo_full_name:
+    required: true
+    description: Full repository name, like owner/repo
+
+  commit_sha:
+    required: true
+    description: Commit SHA to process
+
+  gh_pat:
+    required: true
+    description: GitHub PAT used to read repository data
+
+  apps_script_webapp_url:
+    required: true
+    description: Google Apps Script web app URL
+
+runs:
+  using: composite
+  steps:
+    - name: Setup Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.11"
+
+    - name: Install Dependencies
+      shell: bash
+      run: |
+        cd "$GITHUB_ACTION_PATH"
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: Run Commit Tracker
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ inputs.gh_pat }}
+        APPS_SCRIPT_WEBAPP_URL: ${{ inputs.apps_script_webapp_url }}
+        REPO_FULL_NAME: ${{ inputs.repo_full_name }}
+        COMMIT_SHA: ${{ inputs.commit_sha }}
+      run: |
+        cd "$GITHUB_ACTION_PATH"
+        python runner.py
