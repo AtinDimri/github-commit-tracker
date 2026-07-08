@@ -10,6 +10,9 @@ from diff_engine import format_changes, parse_patch
 from github_client import get_commit, get_files
 from google_sheets import append_commit_file_rows
 
+from datetime import datetime
+from zoneinfo import ZoneInfo
+
 
 def load_event() -> Dict[str, Any]:
     event_path = os.getenv("GITHUB_EVENT_PATH")
@@ -88,12 +91,20 @@ def _extract_commit_datetime(payload: Dict[str, Any], commit_obj: Any) -> dateti
     return datetime.now(timezone.utc)
 
 
-def _format_date_time(dt: datetime) -> Tuple[str, str]:
-    if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=timezone.utc)
+def _format_date_time(dt: datetime):
+    """
+    Convert commit time to Indian Standard Time.
+    """
 
-    local_dt = dt.astimezone()
-    return local_dt.strftime("%Y-%m-%d"), local_dt.strftime("%H:%M:%S")
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=ZoneInfo("UTC"))
+
+    ist = dt.astimezone(ZoneInfo("Asia/Kolkata"))
+
+    return (
+        ist.strftime("%Y-%m-%d"),
+        ist.strftime("%H:%M:%S"),
+    )
 
 
 def main() -> None:
