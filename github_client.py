@@ -1,30 +1,27 @@
+import os
 from github import Github, Auth
-from config import GITHUB_TOKEN
 
 
-# -------------------------------------------------
-# GitHub Authentication
-# -------------------------------------------------
-
-if not GITHUB_TOKEN:
-    raise RuntimeError(
-        "GITHUB_TOKEN environment variable is not set."
+def _get_token() -> str:
+    token = (
+        os.getenv("GITHUB_TOKEN")
+        or os.getenv("GH_PAT")
+        or os.getenv("INPUT_GH_PAT")
     )
+    if not token:
+        raise RuntimeError(
+            "GitHub token not found. Expected GITHUB_TOKEN, GH_PAT, or INPUT_GH_PAT."
+        )
+    return token
 
-auth = Auth.Token(GITHUB_TOKEN)
-github = Github(auth=auth)
 
+def get_github_client() -> Github:
+    auth = Auth.Token(_get_token())
+    return Github(auth=auth)
 
-# -------------------------------------------------
-# Repository Functions
-# -------------------------------------------------
 
 def get_repo(repo_name: str):
-    """
-    Example:
-        repo_name = "AtinDimri/Test_repo"
-    """
-    return github.get_repo(repo_name)
+    return get_github_client().get_repo(repo_name)
 
 
 def get_commit(repo_name: str, commit_sha: str):
@@ -42,15 +39,7 @@ def get_files(commit):
     return list(commit.files)
 
 
-# -------------------------------------------------
-# File Content Functions
-# -------------------------------------------------
-
 def get_file_content(repo_name: str, file_path: str, ref: str) -> str:
-    """
-    Download a file's contents at a specific commit/branch/tag.
-    """
-
     repo = get_repo(repo_name)
 
     try:
@@ -73,64 +62,6 @@ def get_old_and_new_file(
     commit_sha: str,
     file_path: str,
 ):
-    """
-    Returns:
-        old_content,
-        new_content
-    """
-
-    old_content = get_file_content(
-        repo_name,
-        file_path,
-        parent_sha,
-    )
-
-    new_content = get_file_content(
-        repo_name,
-        file_path,
-        commit_sha,
-    )
-
+    old_content = get_file_content(repo_name, file_path, parent_sha)
+    new_content = get_file_content(repo_name, file_path, commit_sha)
     return old_content, new_content
-
-
-# -------------------------------------------------
-# Local Testing
-# -------------------------------------------------
-
-if __name__ == "__main__":
-
-    REPO_NAME = "AtinDimri/Test_repo"
-    COMMIT_SHA = "23acb5ef9ce53219af0beeb79fbd31c76235d0f4"
-
-    commit = get_commit(REPO_NAME, COMMIT_SHA)
-    parent_sha = get_parent_sha(commit)
-
-    print("=" * 70)
-    print("Repository :", REPO_NAME)
-    print("Commit SHA :", COMMIT_SHA)
-    print("Parent SHA :", parent_sha)
-    print("=" * 70)
-
-    files = get_files(commit)
-
-    for file in files:
-
-        print("\nFile :", file.filename)
-
-        old_text, new_text = get_old_and_new_file(
-            REPO_NAME,
-            parent_sha,
-            COMMIT_SHA,
-            file.filename,
-        )
-
-        print("\nOLD FILE")
-        print("-" * 40)
-        print(old_text)
-
-        print("\nNEW FILE")
-        print("-" * 40)
-        print(new_text)
-
-        print("\n" + "=" * 70)
