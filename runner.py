@@ -49,10 +49,8 @@ def _extract_commit_message(commit_obj: Any) -> str:
 def _extract_commit_datetime(commit_obj: Any) -> datetime:
     try:
         author_date = commit_obj.commit.author.date
-
         if isinstance(author_date, datetime):
             return author_date
-
     except Exception:
         pass
 
@@ -64,17 +62,14 @@ def _format_date_time(dt: datetime) -> str:
     Convert commit timestamp to Indian Standard Time
     and return date + time in one value.
     """
-
     if dt.tzinfo is None:
         dt = dt.replace(tzinfo=ZoneInfo("UTC"))
 
     ist = dt.astimezone(ZoneInfo("Asia/Kolkata"))
-
     return ist.strftime("%Y-%m-%d %H:%M:%S")
 
 
 def main() -> None:
-
     repo_full_name = _get_env_value(
         "REPO_FULL_NAME",
         "GITHUB_REPOSITORY",
@@ -102,47 +97,23 @@ def main() -> None:
     print("Commit Tracker Started Successfully")
     print("=" * 70)
     print("Project     :", repo_full_name)
-    print("Commit SHA  :", commit_sha)
     print("Assigned to :", committer)
     print("Task        :", commit_message)
     print("Date & Time :", date_time)
     print("Files       :", len(files))
     print("=" * 70)
 
-    # -------------------------------------------------
     # Build complete commit-level changes
-    # -------------------------------------------------
-
     change_blocks: List[str] = []
 
     for file_obj in files:
-
-        file_name = getattr(
-            file_obj,
-            "filename",
-            "unknown-file",
-        )
-
-        patch = getattr(
-            file_obj,
-            "patch",
-            None,
-        )
+        file_name = getattr(file_obj, "filename", "unknown-file")
+        patch = getattr(file_obj, "patch", None)
 
         if patch:
-
-            changes_text = format_changes(
-                parse_patch(patch)
-            )
-
+            changes_text = format_changes(parse_patch(patch))
         else:
-
-            status = getattr(
-                file_obj,
-                "status",
-                "modified",
-            )
-
+            status = getattr(file_obj, "status", "modified")
             changes_text = (
                 f"No code patch available for this file.\n"
                 f"Status: {status}"
@@ -155,26 +126,20 @@ def main() -> None:
 
     changes = "\n\n---\n\n".join(change_blocks)
 
-    # -------------------------------------------------
-    # Generate one AI summary for the entire commit
-    # -------------------------------------------------
-
+    # One AI summary for the entire commit
     ai_summary = generate_ai_summary(
-        commit_message,
-        "Overall commit",
-        changes,
+        commit_message=commit_message,
+        changes=changes,
     )
-    # -------------------------------------------------
-    # One row per COMMIT
-    # -------------------------------------------------
 
+    # One row per commit
     row = [
-        repo_full_name,       # Project
-        committer,            # Assigned to
-        commit_message,       # Task
-        date_time,            # Date & Time
-        ai_summary,           # Remark
-        "",                   # Status
+        repo_full_name,   # Project
+        committer,        # Assigned to
+        commit_message,   # Task
+        date_time,        # Date & Time
+        ai_summary,       # Remark
+        "",               # Status
     ]
 
     append_commit_file_rows([row])
