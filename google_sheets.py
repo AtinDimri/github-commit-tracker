@@ -17,7 +17,9 @@ HEADERS = [
 ]
 
 
-def _row_list_to_dict(row: Sequence[Any]) -> Dict[str, str]:
+def _row_list_to_dict(
+    row: Sequence[Any],
+) -> Dict[str, str]:
 
     if len(row) != 6:
         raise ValueError(
@@ -97,9 +99,19 @@ def append_commit_file_rows(
             "APPS_SCRIPT_WEBAPP_URL is missing in config.py"
         )
 
+    normalized_rows = _normalize_rows(rows)
+
+    if not normalized_rows:
+        raise ValueError(
+            "No rows were provided to append."
+        )
+
     payload = {
-        "rows": _normalize_rows(rows)
+        "rows": normalized_rows
     }
+
+    print("Sending payload to Apps Script...")
+    print(f"Rows: {len(normalized_rows)}")
 
     response = requests.post(
         APPS_SCRIPT_WEBAPP_URL,
@@ -114,19 +126,20 @@ def append_commit_file_rows(
 
         raise RuntimeError(
             "Apps Script returned non-JSON response.\n"
-            f"Status: {response.status_code}\n"
-            f"Body: {response.text}"
+            f"HTTP Status: {response.status_code}\n"
+            f"Response: {response.text}"
         )
 
     if response.status_code != 200:
 
         raise RuntimeError(
             "Apps Script request failed.\n"
-            f"Status: {response.status_code}\n"
+            f"HTTP Status: {response.status_code}\n"
             f"Response: {data}"
         )
 
-    if not data.get("success"):
+    # Apps Script returns {"ok": true, ...}
+    if not data.get("ok"):
 
         raise RuntimeError(
             f"Apps Script reported failure: {data}"
@@ -137,7 +150,8 @@ def append_commit_file_rows(
 
 if __name__ == "__main__":
 
-    # Temporary smoke test
+    # Temporary smoke test.
+    # Remove this block when you no longer need local testing.
 
     result = append_commit_file_rows(
         [[
