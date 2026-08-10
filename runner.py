@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-import os
 from datetime import datetime
+import os
 from typing import Any, List
 from zoneinfo import ZoneInfo
 
@@ -14,12 +14,14 @@ from google_sheets import append_commit_file_rows
 def _get_env_value(*names: str, required: bool = True) -> str:
     for name in names:
         value = os.getenv(name)
+
         if value:
             return value.strip()
 
     if required:
         raise RuntimeError(
-            f"Missing required environment variable. Tried: {', '.join(names)}"
+            f"Missing required environment variable. "
+            f"Tried: {', '.join(names)}"
         )
 
     return ""
@@ -28,8 +30,10 @@ def _get_env_value(*names: str, required: bool = True) -> str:
 def _extract_committer(commit_obj: Any) -> str:
     try:
         author = commit_obj.commit.author
+
         if author and author.name:
             return str(author.name)
+
     except Exception:
         pass
 
@@ -40,6 +44,7 @@ def _extract_commit_message(commit_obj: Any) -> str:
     try:
         if commit_obj.commit and commit_obj.commit.message:
             return str(commit_obj.commit.message)
+
     except Exception:
         pass
 
@@ -49,8 +54,10 @@ def _extract_commit_message(commit_obj: Any) -> str:
 def _extract_commit_datetime(commit_obj: Any) -> datetime:
     try:
         author_date = commit_obj.commit.author.date
+
         if isinstance(author_date, datetime):
             return author_date
+
     except Exception:
         pass
 
@@ -60,16 +67,23 @@ def _extract_commit_datetime(commit_obj: Any) -> datetime:
 def _format_date_time(dt: datetime) -> str:
     """
     Convert commit timestamp to Indian Standard Time
-    and return date + time in one value.
+    and return date + time as one value.
     """
+
     if dt.tzinfo is None:
         dt = dt.replace(tzinfo=ZoneInfo("UTC"))
 
     ist = dt.astimezone(ZoneInfo("Asia/Kolkata"))
+
     return ist.strftime("%Y-%m-%d %H:%M:%S")
 
 
 def main() -> None:
+
+    # -------------------------------------------------
+    # Get repository and commit information
+    # -------------------------------------------------
+
     repo_full_name = _get_env_value(
         "REPO_FULL_NAME",
         "GITHUB_REPOSITORY",
@@ -80,12 +94,20 @@ def main() -> None:
         "GITHUB_SHA",
     )
 
+    # -------------------------------------------------
+    # Fetch commit from GitHub
+    # -------------------------------------------------
+
     commit_obj = get_commit(
         repo_full_name,
         commit_sha,
     )
 
     files = get_files(commit_obj)
+
+    # -------------------------------------------------
+    # Extract commit information
+    # -------------------------------------------------
 
     committer = _extract_committer(commit_obj)
     commit_message = _extract_commit_message(commit_obj)
@@ -103,19 +125,42 @@ def main() -> None:
     print("Files       :", len(files))
     print("=" * 70)
 
-    # Build complete commit-level changes
+    # -------------------------------------------------
+    # Build complete commit-level change information
+    # -------------------------------------------------
+
     change_blocks: List[str] = []
 
     for file_obj in files:
-        file_name = getattr(file_obj, "filename", "unknown-file")
-        patch = getattr(file_obj, "patch", None)
+
+        file_name = getattr(
+            file_obj,
+            "filename",
+            "unknown-file",
+        )
+
+        patch = getattr(
+            file_obj,
+            "patch",
+            None,
+        )
 
         if patch:
-            changes_text = format_changes(parse_patch(patch))
+
+            changes_text = format_changes(
+                parse_patch(patch)
+            )
+
         else:
-            status = getattr(file_obj, "status", "modified")
+
+            status = getattr(
+                file_obj,
+                "status",
+                "modified",
+            )
+
             changes_text = (
-                f"No code patch available for this file.\n"
+                "No code patch available for this file.\n"
                 f"Status: {status}"
             )
 
@@ -126,26 +171,44 @@ def main() -> None:
 
     changes = "\n\n---\n\n".join(change_blocks)
 
-    # One AI summary for the entire commit
+    # -------------------------------------------------
+    # Generate AI summary
+    # -------------------------------------------------
+
     ai_summary = generate_ai_summary(
         commit_message=commit_message,
         changes=changes,
     )
 
-    # One row per commit
+    # -------------------------------------------------
+    # Create ONE row per commit
+    #
+    # Project
+    # Assigned to
+    # Task
+    # Date & Time
+    # Remark
+    # Status
+    # -------------------------------------------------
+
     row = [
-        repo_full_name,   # Project
-        committer,        # Assigned to
-        commit_message,   # Task
-        date_time,        # Date & Time
-        ai_summary,       # Remark
-        "",               # Status
+        repo_full_name,
+        committer,
+        commit_message,
+        date_time,
+        ai_summary,
+        "",
     ]
 
-    append_commit_file_rows([row])
+    # -------------------------------------------------
+    # Send row to Google Sheets
+    # -------------------------------------------------
+
+    result = append_commit_file_rows([row])
 
     print("=" * 70)
     print("Commit successfully written to Google Sheets.")
+    print("Apps Script response:", result)
     print("=" * 70)
 
 
