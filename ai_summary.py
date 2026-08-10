@@ -52,41 +52,31 @@ def _extract_change_signals(changes: str) -> List[str]:
     return unique
 
 
-def generate_ai_summary(commit_message: str, file_name: str, changes: str) -> str:
+def generate_ai_summary(commit_message: str, changes: str) -> str:
     """
-    Zero-cost local summary generator.
-
-    Returns a short readable summary based on the code changes.
+    Zero-cost local summary generator for commit-level summaries.
     """
     phrases = _extract_change_signals(changes)
     phrase = _join_phrases(phrases)
     phrase = phrase[:1].upper() + phrase[1:] if phrase else "Updated the code"
 
+    commit_message = (commit_message or "").strip().rstrip(".")
+
     if commit_message:
-        commit_message = commit_message.strip().rstrip(".")
-        if commit_message and commit_message.lower() not in phrase.lower():
-            return f"{phrase} in {file_name}. Commit note: {commit_message}."
+        return f"{phrase}. Commit note: {commit_message}."
 
-    return f"{phrase} in {file_name}."
-
+    return f"{phrase}."
+    
 
 if __name__ == "__main__":
-    sample = """Line 1
+    sample = """FILE: PUSHING.py
+
+Line 1
 
 Removed:
 print("Hello")
 
 Added:
 print("Hello World")
-
-----------------------------------------
-
-Line 6
-
-Removed:
-for i in range(12):
-
-Added:
-for i in range(18):
 """
-    print(generate_ai_summary("Update print statements and loop range in PUSHING.py", "PUSHING.py", sample))
+    print(generate_ai_summary("Update PUSHING.py", sample))
