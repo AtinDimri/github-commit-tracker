@@ -161,9 +161,9 @@ def main() -> None:
 
     ai_summary = generate_ai_summary(
         commit_message,
+        "Overall commit",
         changes,
     )
-
     # -------------------------------------------------
     # One row per COMMIT
     # -------------------------------------------------
