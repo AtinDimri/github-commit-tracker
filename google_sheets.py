@@ -89,7 +89,6 @@ def _normalize_rows(
 
     return normalized
 
-
 def append_commit_file_rows(
     rows: Iterable[Any],
 ) -> Dict[str, Any]:
@@ -100,11 +99,6 @@ def append_commit_file_rows(
         )
 
     normalized_rows = _normalize_rows(rows)
-
-    if not normalized_rows:
-        raise ValueError(
-            "No rows were provided to append."
-        )
 
     payload = {
         "rows": normalized_rows
@@ -123,20 +117,32 @@ def append_commit_file_rows(
         data = response.json()
 
     except Exception:
-
         raise RuntimeError(
             "Apps Script returned non-JSON response.\n"
-            f"HTTP Status: {response.status_code}\n"
-            f"Response: {response.text}"
+            f"Status: {response.status_code}\n"
+            f"Body: {response.text}"
         )
 
     if response.status_code != 200:
-
         raise RuntimeError(
             "Apps Script request failed.\n"
-            f"HTTP Status: {response.status_code}\n"
+            f"Status: {response.status_code}\n"
             f"Response: {data}"
         )
+
+    # Apps Script returns:
+    # {"success": true, "rowsWritten": 1}
+    if not data.get("success", False):
+        raise RuntimeError(
+            f"Apps Script reported failure: {data}"
+        )
+
+    print(
+        f"Apps Script succeeded. "
+        f"Rows written: {data.get('rowsWritten', 0)}"
+    )
+
+    return data
 
     # Apps Script returns {"ok": true, ...}
     if not data.get("ok"):
