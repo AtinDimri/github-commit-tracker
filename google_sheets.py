@@ -6,7 +6,6 @@ import requests
 
 from config import APPS_SCRIPT_WEBAPP_URL
 
-
 HEADERS = [
     "Project",
     "Assigned to",
@@ -17,10 +16,7 @@ HEADERS = [
 ]
 
 
-def _row_list_to_dict(
-    row: Sequence[Any],
-) -> Dict[str, str]:
-
+def _row_list_to_dict(row: Sequence[Any]) -> Dict[str, str]:
     if len(row) != 6:
         raise ValueError(
             f"Expected 6 values per row, got {len(row)}. "
@@ -37,10 +33,7 @@ def _row_list_to_dict(
     }
 
 
-def _normalize_rows(
-    rows: Iterable[Any],
-) -> List[Dict[str, str]]:
-
+def _normalize_rows(rows: Iterable[Any]) -> List[Dict[str, str]]:
     normalized: List[Dict[str, str]] = []
 
     required = [
@@ -53,35 +46,17 @@ def _normalize_rows(
     ]
 
     for row in rows:
-
         if isinstance(row, dict):
-
-            missing = [
-                key
-                for key in required
-                if key not in row
-            ]
-
+            missing = [key for key in required if key not in row]
             if missing:
-                raise ValueError(
-                    f"Missing row keys: {missing}"
-                )
+                raise ValueError(f"Missing row keys: {missing}")
 
-            normalized.append(
-                {
-                    key: str(row[key])
-                    for key in required
-                }
-            )
+            normalized.append({key: str(row[key]) for key in required})
 
         elif isinstance(row, (list, tuple)):
-
-            normalized.append(
-                _row_list_to_dict(row)
-            )
+            normalized.append(_row_list_to_dict(row))
 
         else:
-
             raise TypeError(
                 "Each row must be either a dict "
                 "or a list/tuple of 6 values."
@@ -89,10 +64,8 @@ def _normalize_rows(
 
     return normalized
 
-def append_commit_file_rows(
-    rows: Iterable[Any],
-) -> Dict[str, Any]:
 
+def append_commit_file_rows(rows: Iterable[Any]) -> Dict[str, Any]:
     if not APPS_SCRIPT_WEBAPP_URL:
         raise ValueError(
             "APPS_SCRIPT_WEBAPP_URL is missing in config.py"
@@ -115,7 +88,6 @@ def append_commit_file_rows(
 
     try:
         data = response.json()
-
     except Exception:
         raise RuntimeError(
             "Apps Script returned non-JSON response.\n"
@@ -130,8 +102,6 @@ def append_commit_file_rows(
             f"Response: {data}"
         )
 
-    # Apps Script returns:
-    # {"success": true, "rowsWritten": 1}
     if not data.get("success", False):
         raise RuntimeError(
             f"Apps Script reported failure: {data}"
@@ -144,21 +114,9 @@ def append_commit_file_rows(
 
     return data
 
-    # Apps Script returns {"ok": true, ...}
-    if not data.get("ok"):
-
-        raise RuntimeError(
-            f"Apps Script reported failure: {data}"
-        )
-
-    return data
-
 
 if __name__ == "__main__":
-
     # Temporary smoke test.
-    # Remove this block when you no longer need local testing.
-
     result = append_commit_file_rows(
         [[
             "Test_repo",
