@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import os
 from datetime import datetime
-from typing import Any, List, Tuple
+from typing import Any, List
 from zoneinfo import ZoneInfo
 
 from ai_summary import generate_ai_summary
@@ -32,6 +32,7 @@ def _extract_committer(commit_obj: Any) -> str:
             return str(author.name)
     except Exception:
         pass
+
     return "Unknown"
 
 
@@ -41,86 +42,146 @@ def _extract_commit_message(commit_obj: Any) -> str:
             return str(commit_obj.commit.message)
     except Exception:
         pass
+
     return ""
 
 
 def _extract_commit_datetime(commit_obj: Any) -> datetime:
     try:
         author_date = commit_obj.commit.author.date
+
         if isinstance(author_date, datetime):
             return author_date
+
     except Exception:
         pass
 
     return datetime.now(ZoneInfo("UTC"))
 
 
-def _format_date_time(dt: datetime) -> Tuple[str, str]:
+def _format_date_time(dt: datetime) -> str:
+    """
+    Convert commit timestamp to Indian Standard Time
+    and return date + time in one value.
+    """
+
     if dt.tzinfo is None:
         dt = dt.replace(tzinfo=ZoneInfo("UTC"))
 
     ist = dt.astimezone(ZoneInfo("Asia/Kolkata"))
-    return ist.strftime("%Y-%m-%d"), ist.strftime("%H:%M:%S")
+
+    return ist.strftime("%Y-%m-%d %H:%M:%S")
 
 
 def main() -> None:
-    repo_full_name = _get_env_value("REPO_FULL_NAME", "GITHUB_REPOSITORY")
-    commit_sha = _get_env_value("COMMIT_SHA", "GITHUB_SHA")
 
-    commit_obj = get_commit(repo_full_name, commit_sha)
+    repo_full_name = _get_env_value(
+        "REPO_FULL_NAME",
+        "GITHUB_REPOSITORY",
+    )
+
+    commit_sha = _get_env_value(
+        "COMMIT_SHA",
+        "GITHUB_SHA",
+    )
+
+    commit_obj = get_commit(
+        repo_full_name,
+        commit_sha,
+    )
+
     files = get_files(commit_obj)
 
     committer = _extract_committer(commit_obj)
     commit_message = _extract_commit_message(commit_obj)
 
     commit_dt = _extract_commit_datetime(commit_obj)
-    date_str, time_str = _format_date_time(commit_dt)
-
-    rows: List[List[str]] = []
+    date_time = _format_date_time(commit_dt)
 
     print("=" * 70)
     print("Commit Tracker Started Successfully")
     print("=" * 70)
-    print("Repository :", repo_full_name)
-    print("Commit SHA :", commit_sha)
-    print("Committer  :", committer)
-    print("Message    :", commit_message)
-    print("Files      :", len(files))
+    print("Project     :", repo_full_name)
+    print("Commit SHA  :", commit_sha)
+    print("Assigned to :", committer)
+    print("Task        :", commit_message)
+    print("Date & Time :", date_time)
+    print("Files       :", len(files))
     print("=" * 70)
 
+    # -------------------------------------------------
+    # Build complete commit-level changes
+    # -------------------------------------------------
+
+    change_blocks: List[str] = []
+
     for file_obj in files:
-        file_name = getattr(file_obj, "filename", "unknown-file")
-        patch = getattr(file_obj, "patch", None)
 
-        if patch:
-            changes_text = format_changes(parse_patch(patch))
-        else:
-            status = getattr(file_obj, "status", "modified")
-            changes_text = f"No code patch available for this file.\nStatus: {status}"
-
-        ai_summary = generate_ai_summary(commit_message, file_name, changes_text)
-
-        rows.append(
-            [
-                repo_full_name,
-                commit_sha,
-                committer,
-                file_name,
-                changes_text,
-                commit_message,
-                date_str,
-                time_str,
-                ai_summary,
-            ]
+        file_name = getattr(
+            file_obj,
+            "filename",
+            "unknown-file",
         )
 
-        print(f"Processed file: {file_name}")
+        patch = getattr(
+            file_obj,
+            "patch",
+            None,
+        )
 
-    if rows:
-        append_commit_file_rows(rows)
-        print(f"Appended {len(rows)} row(s) to Google Sheets.")
-    else:
-        print("No changed files to write.")
+        if patch:
+
+            changes_text = format_changes(
+                parse_patch(patch)
+            )
+
+        else:
+
+            status = getattr(
+                file_obj,
+                "status",
+                "modified",
+            )
+
+            changes_text = (
+                f"No code patch available for this file.\n"
+                f"Status: {status}"
+            )
+
+        change_blocks.append(
+            f"FILE: {file_name}\n"
+            f"{changes_text}"
+        )
+
+    changes = "\n\n---\n\n".join(change_blocks)
+
+    # -------------------------------------------------
+    # Generate one AI summary for the entire commit
+    # -------------------------------------------------
+
+    ai_summary = generate_ai_summary(
+        commit_message,
+        changes,
+    )
+
+    # -------------------------------------------------
+    # One row per COMMIT
+    # -------------------------------------------------
+
+    row = [
+        repo_full_name,       # Project
+        committer,            # Assigned to
+        commit_message,       # Task
+        date_time,            # Date & Time
+        ai_summary,           # Remark
+        "",                   # Status
+    ]
+
+    append_commit_file_rows([row])
+
+    print("=" * 70)
+    print("Commit successfully written to Google Sheets.")
+    print("=" * 70)
 
 
 if __name__ == "__main__":
